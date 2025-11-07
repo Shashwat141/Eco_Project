@@ -1,0 +1,3 @@
+# Ignore the 4.5GB+ raw data file
+*.csv
+
