@@ -112,6 +112,7 @@ print("Data preprocessing complete.")
 # It has been moved to the top of the file
 
 # HELPER FUNCTION: Categorize education levels
+
 def categorize_education(attainment_level):
     if pd.isna(attainment_level):
         return 'Other'
@@ -123,7 +124,6 @@ def categorize_education(attainment_level):
     elif any(x in level_str for x in ['ISCED11A_5', 'ISCED11A_6', 'ISCED11A_7', 'ISCED11A_8']):
         return 'Tertiary'
     return 'Other'
-
 # ============================================================================
 # VIZ 1: Education Attainment Trends Over Time
 # ============================================================================
