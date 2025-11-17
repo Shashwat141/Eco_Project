@@ -8,17 +8,22 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import numpy as np
 
+# HELPER FUNCTION: Categorize education levels
 def categorize_education(attainment_level):
-    """Categorize education attainment levels into broader groups"""
-    if pd.isna(attainment_level) or attainment_level == '_T':
-        return 'Total'
-    level = int(attainment_level[1:])  # Remove 'L' prefix and convert to int
-    if level <= 2:
-        return 'Below Upper Secondary'
-    elif level <= 4:
-        return 'Upper Secondary & Post-Secondary Non-Tertiary'
-    else:
-        return 'Tertiary Education'
+    if pd.isna(attainment_level):
+        return 'Other'
+    
+    # This line converts any input (int or str) to a string
+    level_str = str(attainment_level) 
+    
+    # This block CHECKS FOR SUBSTRINGS, it doesn't try to convert to int
+    if any(x in level_str for x in ['ISCED11A_0', 'ISCED11A_1', 'ISCED11A_2']):
+        return 'Primary'
+    elif any(x in level_str for x in ['ISCED11A_3', 'ISCED11A_4']):
+        return 'Secondary'
+    elif any(x in level_str for x in ['ISCED11A_5', 'ISCED11A_6', 'ISCED11A_7', 'ISCED11A_8']):
+        return 'Tertiary'
+    return 'Other'
 
 print("=" * 80)
 print("OECD EDUCATION DATA - INTERACTIVE VISUALIZATIONS")
@@ -101,16 +106,19 @@ print(f"Data computed. {len(df_computed)} rows loaded into memory.")
 # Apply all mappings
 print("Applying human-readable labels...")
 df_computed['Education Level'] = df_computed['ATTAINMENT_LEV'].apply(categorize_education)
+
+# This first line is OK because it fills with a simple string 'Other/Total'
 df_computed['Field of Education'] = df_computed['EDUCATION_FIELD'].map(FIELD_MAP).fillna('Other/Total')
-df_computed['Age Group'] = df_computed['AGE'].map(AGE_MAP).fillna(df_computed['AGE'])
-df_computed['Gender'] = df_computed['SEX'].map(SEX_MAP).fillna(df_computed['SEX'])
-df_computed['Birth Place'] = df_computed['BIRTH_PLACE'].map(BIRTH_PLACE_MAP).fillna(df_computed['BIRTH_PLACE'])
-df_computed['Country'] = df_computed['REF_AREA'].map(COUNTRY_MAP).fillna(df_computed['REF_AREA'])
+
+# --- APPLY .astype(object) TO THE LINES BELOW ---
+
+# Add .astype(object) before .fillna()
+df_computed['Age Group'] = df_computed['AGE'].map(AGE_MAP).astype(object).fillna(df_computed['AGE'])
+df_computed['Gender'] = df_computed['SEX'].map(SEX_MAP).astype(object).fillna(df_computed['SEX'])
+df_computed['Birth Place'] = df_computed['BIRTH_PLACE'].map(BIRTH_PLACE_MAP).astype(object).fillna(df_computed['BIRTH_PLACE'])
+df_computed['Country'] = df_computed['REF_AREA'].map(COUNTRY_MAP).astype(object).fillna(df_computed['REF_AREA'])
+
 print("Data preprocessing complete.")
-
-# Remove the original function definition that was at the bottom of the file
-# It has been moved to the top of the file
-
 # HELPER FUNCTION: Categorize education levels
 
 def categorize_education(attainment_level):
