@@ -8,6 +8,18 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import numpy as np
 
+def categorize_education(attainment_level):
+    """Categorize education attainment levels into broader groups"""
+    if pd.isna(attainment_level) or attainment_level == '_T':
+        return 'Total'
+    level = int(attainment_level[1:])  # Remove 'L' prefix and convert to int
+    if level <= 2:
+        return 'Below Upper Secondary'
+    elif level <= 4:
+        return 'Upper Secondary & Post-Secondary Non-Tertiary'
+    else:
+        return 'Tertiary Education'
+
 print("=" * 80)
 print("OECD EDUCATION DATA - INTERACTIVE VISUALIZATIONS")
 print("=" * 80)
@@ -56,7 +68,21 @@ BIRTH_PLACE_MAP = {
     'FOREIGN': 'Foreign-Born',
     '_T': 'Total'
 }
-
+# Country / Reference Area mapping
+COUNTRY_MAP = {
+    'AUS': 'Australia', 'AUT': 'Austria', 'BEL': 'Belgium', 'CAN': 'Canada',
+    'CHL': 'Chile', 'COL': 'Colombia', 'CRI': 'Costa Rica', 'CZE': 'Czechia',
+    'DNK': 'Denmark', 'EST': 'Estonia', 'FIN': 'Finland', 'FRA': 'France',
+    'DEU': 'Germany', 'GRC': 'Greece', 'HUN': 'Hungary', 'ISL': 'Iceland',
+    'IRL': 'Ireland', 'ISR': 'Israel', 'ITA': 'Italy', 'JPN': 'Japan',
+    'KOR': 'Korea', 'LVA': 'Latvia', 'LTU': 'Lithuania', 'LUX': 'Luxembourg',
+    'MEX': 'Mexico', 'NLD': 'Netherlands', 'NZL': 'New Zealand', 'NOR': 'Norway',
+    'POL': 'Poland', 'PRT': 'Portugal', 'SVK': 'Slovak Republic', 'SVN': 'Slovenia',
+    'ESP': 'Spain', 'SWE': 'Sweden', 'CHE': 'Switzerland', 'TUR': 'Türkiye',
+    'GBR': 'United Kingdom', 'USA': 'United States',
+    'OECD': 'OECD Average'
+}
+# --- END OF NEW MAPPING ---
 # ----------------------------------------------------------------------------
 # DATA LOADING AND PREPROCESSING
 # ----------------------------------------------------------------------------
@@ -79,8 +105,11 @@ df_computed['Field of Education'] = df_computed['EDUCATION_FIELD'].map(FIELD_MAP
 df_computed['Age Group'] = df_computed['AGE'].map(AGE_MAP).fillna(df_computed['AGE'])
 df_computed['Gender'] = df_computed['SEX'].map(SEX_MAP).fillna(df_computed['SEX'])
 df_computed['Birth Place'] = df_computed['BIRTH_PLACE'].map(BIRTH_PLACE_MAP).fillna(df_computed['BIRTH_PLACE'])
-
+df_computed['Country'] = df_computed['REF_AREA'].map(COUNTRY_MAP).fillna(df_computed['REF_AREA'])
 print("Data preprocessing complete.")
+
+# Remove the original function definition that was at the bottom of the file
+# It has been moved to the top of the file
 
 # HELPER FUNCTION: Categorize education levels
 def categorize_education(attainment_level):
@@ -109,14 +138,14 @@ trends = df_computed[
 ]
 
 # Aggregate data
-trends_agg = trends.groupby(['TIME_PERIOD', 'Education Level', 'REF_AREA'])['OBS_VALUE'].sum().reset_index()
+trends_agg = trends.groupby(['TIME_PERIOD', 'Education Level', 'Country'])['OBS_VALUE'].sum().reset_index()
 
 # Get top 8 countries
-top_countries = trends_agg.groupby('REF_AREA')['OBS_VALUE'].sum().nlargest(8).index.tolist()
-trends_agg = trends_agg[trends_agg['REF_AREA'].isin(top_countries)]
+top_countries = trends_agg.groupby('Country')['OBS_VALUE'].sum().nlargest(8).index.tolist()
+trends_agg = trends_agg[trends_agg['Country'].isin(top_countries)]
 
 # Calculate percentages
-trends_agg['PERCENTAGE'] = trends_agg.groupby(['TIME_PERIOD', 'REF_AREA'])['OBS_VALUE'].transform(
+trends_agg['PERCENTAGE'] = trends_agg.groupby(['TIME_PERIOD', 'Country'])['OBS_VALUE'].transform(
     lambda x: (x / x.sum() * 100) if x.sum() > 0 else 0
 )
 
@@ -125,14 +154,14 @@ fig1 = px.line(
     x='TIME_PERIOD',
     y='PERCENTAGE',
     color='Education Level',
-    facet_col='REF_AREA',
+    facet_col='Country',
     facet_col_wrap=4,
     title='Education Attainment Trends Over Time (Primary, Secondary, Tertiary)',
     labels={
         'TIME_PERIOD': 'Year',
         'PERCENTAGE': 'Percentage (%)',
         'Education Level': 'Education Level',
-        'REF_AREA': 'Country'
+        'Country': 'Country'
     },
     height=1000,
     markers=True
@@ -154,25 +183,25 @@ age_trends = df_computed[
 ]
 
 # Aggregate data
-age_agg = age_trends.groupby(['TIME_PERIOD', 'Age Group', 'Education Level', 'REF_AREA'])['OBS_VALUE'].sum().reset_index()
+age_agg = age_trends.groupby(['TIME_PERIOD', 'Age Group', 'Education Level', 'Country'])['OBS_VALUE'].sum().reset_index()
 
 # Top 4 countries
-top_countries = age_agg.groupby('REF_AREA')['OBS_VALUE'].sum().nlargest(4).index.tolist()
-age_agg = age_agg[age_agg['REF_AREA'].isin(top_countries)]
+top_countries = age_agg.groupby('Country')['OBS_VALUE'].sum().nlargest(4).index.tolist()
+age_agg = age_agg[age_agg['Country'].isin(top_countries)]
 
 fig2 = px.bar(
     age_agg,
     x='Age Group',
     y='OBS_VALUE',
     color='Education Level',
-    facet_col='REF_AREA',
+    facet_col='Country',
     facet_col_wrap=2,
     facet_row='TIME_PERIOD' if age_agg['TIME_PERIOD'].nunique() <= 3 else None,
     title='Education Attainment by Age Group (Top 4 Countries)',
     labels={
         'OBS_VALUE': 'Population',
         'Education Level': 'Education Level',
-        'REF_AREA': 'Country',
+        'Country': 'Country',
         'Age Group': 'Age Group'
     },
     height=800,
@@ -196,25 +225,25 @@ field_trends = df_computed[
 ]
 
 # Aggregate data
-field_agg = field_trends.groupby(['TIME_PERIOD', 'Field of Education', 'REF_AREA'])['OBS_VALUE'].sum().reset_index()
+field_agg = field_trends.groupby(['TIME_PERIOD', 'Field of Education', 'Country'])['OBS_VALUE'].sum().reset_index()
 
 # Get top countries
-top_countries = field_agg.groupby('REF_AREA')['OBS_VALUE'].sum().nlargest(4).index.tolist()
-field_agg = field_agg[field_agg['REF_AREA'].isin(top_countries)]
+top_countries = field_agg.groupby('Country')['OBS_VALUE'].sum().nlargest(4).index.tolist()
+field_agg = field_agg[field_agg['Country'].isin(top_countries)]
 
 fig3 = px.bar(
     field_agg,
     x='TIME_PERIOD',
     y='OBS_VALUE',
     color='Field of Education',
-    facet_col='REF_AREA',
+    facet_col='Country',
     facet_col_wrap=2,
     title='Education Field Trends Over Time (Top 4 Countries)',
     labels={
         'TIME_PERIOD': 'Year',
         'OBS_VALUE': 'Population',
         'Field of Education': 'Field of Education',
-        'REF_AREA': 'Country'
+        'Country': 'Country'
     },
     height=800,
     barmode='stack'
@@ -237,7 +266,7 @@ growth_data = df_computed[
 ]
 
 # Aggregate data
-growth_agg = growth_data.groupby(['TIME_PERIOD', 'REF_AREA', 'Education Level'])['OBS_VALUE'].sum().reset_index()
+growth_agg = growth_data.groupby(['TIME_PERIOD', 'Country', 'Education Level'])['OBS_VALUE'].sum().reset_index()
 
 years = sorted(growth_agg['TIME_PERIOD'].unique())
 if len(years) >= 2:
@@ -246,20 +275,20 @@ if len(years) >= 2:
 
     growth_calc = growth_agg[
         (growth_agg['TIME_PERIOD'] == first_year) | (growth_agg['TIME_PERIOD'] == last_year)
-    ].pivot_table(values='OBS_VALUE', index=['REF_AREA', 'Education Level'], columns='TIME_PERIOD').reset_index()
+    ].pivot_table(values='OBS_VALUE', index=['Country', 'Education Level'], columns='TIME_PERIOD').reset_index()
 
     growth_calc['GROWTH_RATE'] = ((growth_calc[last_year] - growth_calc[first_year]) / growth_calc[first_year] * 100).fillna(0)
     growth_calc = growth_calc[growth_calc['GROWTH_RATE'] != 0]
 
     fig4 = px.bar(
         growth_calc.nlargest(15, 'GROWTH_RATE'),
-        x='REF_AREA',
+        x='Country',
         y='GROWTH_RATE',
         color='Education Level',
         title=f'Top Education Growth Rates by Country ({first_year}-{last_year})',
         labels={
             'GROWTH_RATE': 'Growth Rate (%)',
-            'REF_AREA': 'Country',
+            'Country': 'Country',
             'Education Level': 'Education Level'
         },
         height=600,
@@ -272,43 +301,84 @@ if len(years) >= 2:
 # ============================================================================
 # VIZ 5: Education vs Labor Force Participation
 # ============================================================================
+# ============================================================================
+# VIZ 5: Education vs Labor Force Participation
+# ============================================================================
 print("\n[5/7] Viz 5: Education vs Labor Force Participation...")
 
-# Filter data
-lfpr_data = df_computed[
+# --- NEW LOGIC ---
+
+# 1. Get Employment Data
+# We filter for 'EMP' (Employed) in the LABOUR_FORCE_STATUS column.
+common_filters = (
     (df_computed['EDUCATION_FIELD'] == '_T') &
     (df_computed['SEX'] == '_T') &
-    (df_computed['AGE'] == 'Y25T64') &
-    ((df_computed['LABOUR_FORCE_STATUS'] == 'EMP') | (df_computed['LABOUR_FORCE_STATUS'] == 'POP'))
+    (df_computed['AGE'] == 'Y25T64')
+)
+
+emp_data = df_computed[
+    common_filters &
+    (df_computed['LABOUR_FORCE_STATUS'] == 'EMP')
 ]
 
-# Pivot to get EMP and POP as columns
-lfpr_pivot = lfpr_data.pivot_table(
-    values='OBS_VALUE', 
-    index=['REF_AREA', 'Education Level'], 
-    columns='LABOUR_FORCE_STATUS'
-).reset_index()
+# Select relevant columns and rename OBS_VALUE to 'Employed'
+emp_agg = emp_data.groupby(
+    ['Country', 'Education Level', 'TIME_PERIOD']
+)['OBS_VALUE'].sum().reset_index().rename(columns={'OBS_VALUE': 'Employed'})
 
-# Calculate LFPR (Labor Force Participation Rate)
-if 'EMP' in lfpr_pivot.columns and 'POP' in lfpr_pivot.columns:
-    lfpr_pivot['LFPR'] = (lfpr_pivot['EMP'] / lfpr_pivot['POP'] * 100).fillna(0)
+
+# 2. Get Population Data
+# We filter for 'POP' (Population) in the MEASURE column.
+pop_data = df_computed[
+    common_filters &
+    (df_computed['MEASURE'] == 'POP')
+]
+
+# Select relevant columns and rename OBS_VALUE to 'Population'
+pop_agg = pop_data.groupby(
+    ['Country', 'Education Level', 'TIME_PERIOD']
+)['OBS_VALUE'].sum().reset_index().rename(columns={'OBS_VALUE': 'Population'})
+
+
+# 3. Merge the two datasets
+# We merge on the common keys. Now each row will have 'Employed' and 'Population'
+lfpr_merged = pd.merge(
+    emp_agg,
+    pop_agg,
+    on=['Country', 'Education Level', 'TIME_PERIOD'],
+    how='left' # Use 'left' or 'inner' join
+)
+
+# 4. Calculate LFPR
+# Now we can safely calculate the Labor Force Participation Rate
+if 'Employed' in lfpr_merged.columns and 'Population' in lfpr_merged.columns:
+    lfpr_merged['LFPR'] = (lfpr_merged['Employed'] / lfpr_merged['Population'] * 100).fillna(0)
     
-    # Filter for top 10 countries by population to keep the chart clean
-    top_countries_lfpr = lfpr_pivot.groupby('REF_AREA')['POP'].sum().nlargest(10).index
-    lfpr_result = lfpr_pivot[lfpr_pivot['REF_AREA'].isin(top_countries_lfpr)]
-    lfpr_result = lfpr_result[lfpr_result['LFPR'] > 0]  # Remove empty data
+    # Filter out invalid LFPR values
+    lfpr_result = lfpr_merged[(lfpr_merged['LFPR'] > 0) & (lfpr_merged['LFPR'] <= 100)].copy()
 
-    # --- THIS IS THE NEW PLOT ---
+    # Filter for a specific year to make the chart cleaner
+    # (Plotting all years can be messy, let's pick the latest one)
+    latest_year = lfpr_result['TIME_PERIOD'].max()
+    if pd.notna(latest_year):
+        print(f"  > Filtering LFPR data for latest available year: {latest_year}")
+        lfpr_result = lfpr_result[lfpr_result['TIME_PERIOD'] == latest_year]
+
+    # Filter for top 10 countries by population to keep the chart clean
+    top_countries_lfpr = pop_agg.groupby('Country')['Population'].sum().nlargest(10).index
+    lfpr_result = lfpr_result[lfpr_result['Country'].isin(top_countries_lfpr)]
+
+    # --- THIS IS THE PLOT ---
     fig5 = px.bar(
         lfpr_result,
-        x='REF_AREA',
+        x='Country',
         y='LFPR',
         color='Education Level',
         barmode='group',
         facet_col='Education Level',  # Facet by category to make it easy to compare
-        title='Labor Force Participation Rate by Education Level (Ages 25-64)',
+        title=f'Labor Force Participation Rate by Education Level (Ages 25-64, Year {latest_year})',
         labels={
-            'REF_AREA': 'Country',
+            'Country': 'Country',
             'LFPR': 'Labor Force Participation Rate (%)',
             'Education Level': 'Education Level'
         },
@@ -318,8 +388,9 @@ if 'EMP' in lfpr_pivot.columns and 'POP' in lfpr_pivot.columns:
     fig5.write_html('viz_05_education_vs_lfpr.html')
     print("  ✓ Saved: viz_05_education_vs_lfpr.html")
 else:
-    print("  ✗ Could not generate Viz 5: 'EMP' or 'POP' data missing after filtering.")
+    print("  ✗ Could not generate Viz 5: 'Employed' or 'Population' data missing after merge.")
 
+# --- END OF REVISED BLOCK ---#
 # ============================================================================
 # VIZ 6: Education vs Migration
 # ============================================================================
@@ -334,21 +405,21 @@ migration_data = df_computed[
 ]
 
 # Aggregate data
-migration_agg = migration_data.groupby(['REF_AREA', 'Birth Place', 'Education Level'])['OBS_VALUE'].sum().reset_index()
+migration_agg = migration_data.groupby(['Country', 'Birth Place', 'Education Level'])['OBS_VALUE'].sum().reset_index()
 
 # Get top countries
-top_countries = migration_agg.groupby('REF_AREA')['OBS_VALUE'].sum().nlargest(5).index.tolist()
-migration_agg = migration_agg[migration_agg['REF_AREA'].isin(top_countries)]
+top_countries = migration_agg.groupby('Country')['OBS_VALUE'].sum().nlargest(5).index.tolist()
+migration_agg = migration_agg[migration_agg['Country'].isin(top_countries)]
 
 fig6 = px.bar(
     migration_agg,
-    x='REF_AREA',
+    x='Country',
     y='OBS_VALUE',
     color='Education Level',
     facet_col='Birth Place',
     title='Education Attainment by Birth Place (Native vs Foreign-Born)',
     labels={
-        'REF_AREA': 'Country',
+        'Country': 'Country',
         'OBS_VALUE': 'Population',
         'Education Level': 'Education Level',
         'Birth Place': 'Birth Place'
@@ -374,25 +445,25 @@ gender_data = df_computed[
 ]
 
 # Aggregate data
-gender_agg = gender_data.groupby(['TIME_PERIOD', 'Education Level', 'Gender', 'REF_AREA'])['OBS_VALUE'].sum().reset_index()
+gender_agg = gender_data.groupby(['TIME_PERIOD', 'Education Level', 'Gender', 'Country'])['OBS_VALUE'].sum().reset_index()
 
 # Get top countries
-top_countries = gender_agg.groupby('REF_AREA')['OBS_VALUE'].sum().nlargest(4).index.tolist()
-gender_agg = gender_agg[gender_agg['REF_AREA'].isin(top_countries)]
+top_countries = gender_agg.groupby('Country')['OBS_VALUE'].sum().nlargest(4).index.tolist()
+gender_agg = gender_agg[gender_agg['Country'].isin(top_countries)]
 
 fig7 = px.bar(
     gender_agg,
     x='TIME_PERIOD',
     y='OBS_VALUE',
     color='Gender',
-    facet_col='REF_AREA',
+    facet_col='Country',
     facet_row='Education Level',
     title='Gender Distribution in Education Levels (Top 4 Countries)',
     labels={
         'TIME_PERIOD': 'Year',
         'OBS_VALUE': 'Population',
         'Gender': 'Gender',
-        'REF_AREA': 'Country',
+        'Country': 'Country',
         'Education Level': 'Education Level'
     },
     height=1000
