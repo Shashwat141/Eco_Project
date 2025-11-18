@@ -35,43 +35,28 @@ print("=" * 80)
 
 # Education field mapping
 FIELD_MAP = {
-    'FIELD001': 'Education',
-    'FIELD002': 'Arts/Humanities',
-    'FIELD003': 'Social Sciences',
-    'FIELD004': 'Business/Law',
-    'FIELD005': 'Natural Sciences',
-    'FIELD006': 'ICT',
-    'FIELD007': 'Engineering',
-    'FIELD008': 'Agriculture',
-    'FIELD009': 'Health/Welfare',
-    'FIELD010': 'Services',
+    'FIELD001': 'Education', 'FIELD002': 'Arts/Humanities',
+    'FIELD003': 'Social Sciences', 'FIELD004': 'Business/Law',
+    'FIELD005': 'Natural Sciences', 'FIELD006': 'ICT',
+    'FIELD007': 'Engineering', 'FIELD008': 'Agriculture',
+    'FIELD009': 'Health/Welfare', 'FIELD010': 'Services',
     '_T': 'Total'
 }
 
 # Age group mapping
 AGE_MAP = {
-    'Y25T64': 'Ages 25-64',
-    'Y15T64': 'Ages 15-64',
-    'Y15T24': 'Ages 15-24',
-    'Y25T34': 'Ages 25-34',
-    'Y35T44': 'Ages 35-44',
-    'Y45T54': 'Ages 45-54',
-    'Y55T64': 'Ages 55-64',
-    '_T': 'All Ages'
+    'Y25T64': 'Ages 25-64', 'Y15T64': 'Ages 15-64', 'Y15T24': 'Ages 15-24',
+    'Y25T34': 'Ages 25-34', 'Y35T44': 'Ages 35-44', 'Y45T54': 'Ages 45-54',
+    'Y55T64': 'Ages 55-64', '_T': 'All Ages'
 }
 
 # Gender mapping
-SEX_MAP = {
-    'F': 'Female',
-    'M': 'Male',
-    '_T': 'Total'
-}
+SEX_MAP = {'F': 'Female', 'M': 'Male', '_T': 'Total'}
+
 # Birth place mapping
 BIRTH_PLACE_MAP = {
-    'NATIVE': 'Native-Born',
-    'FOREIGN': 'Foreign-Born',
-    '_T': 'Total',
-    '_Z': 'Not Applicable' 
+    'NATIVE': 'Native-Born', 'FOREIGN': 'Foreign-Born',
+    '_T': 'Total', '_Z': 'Not Applicable'
 }
 
 # Country / Reference Area mapping
@@ -87,19 +72,29 @@ COUNTRY_MAP = {
     'POL': 'Poland', 'PRT': 'Portugal', 'SVK': 'Slovak Republic',
     'SVN': 'Slovenia', 'ESP': 'Spain', 'SWE': 'Sweden', 'CHE': 'Switzerland',
     'TUR': 'Türkiye', 'GBR': 'United Kingdom', 'USA': 'United States',
-    
     # Non-OECD Partner Countries / Other
     'IDN': 'Indonesia', 'IND': 'India', 'CHN': 'China', 'BRA': 'Brazil',
     'ARG': 'Argentina', 'ZAF': 'South Africa', 'ROU': 'Romania', 'PER': 'Peru',
     'SAU': 'Saudi Arabia', 'RUS': 'Russia', 'BGR': 'Bulgaria', 'HRV': 'Croatia',
-    
     # Pre-calculated Aggregates
-    'OECD': 'OECD Average', 'EU25': 'EU25 Average', 'G20': 'G20 Average'
+    'OECD': 'OECD Average (Broken)', # We will ignore this one
+    'EU25': 'EU25 Average',
+    'G20': 'G20 Average'
 }
 
-# --- ADD THESE NEW GROUPINGS ---
+# --- NEW GROUPINGS ---
 
-# Note: Classification is based on general IMF/World Bank lists
+# List of all individual OECD countries in your dataset
+OECD_MEMBER_COUNTRIES = [
+    'Portugal', 'Ireland', 'Israel', 'Hungary', 'France', 'Netherlands',
+    'Finland', 'Slovenia', 'Latvia', 'Iceland', 'Luxembourg', 'Czechia',
+    'Italy', 'Spain', 'Germany', 'New Zealand', 'Norway', 'Sweden',
+    'Slovak Republic', 'Greece', 'Australia', 'Denmark', 'Mexico', 'Türkiye',
+    'United Kingdom', 'Switzerland', 'Lithuania', 'Estonia', 'Japan',
+    'Poland', 'United States', 'Korea', 'Canada', 'Colombia', 'Austria',
+    'Costa Rica', 'Belgium', 'Chile'
+]
+
 ADVANCED_ECONOMIES = [
     'Australia', 'Austria', 'Belgium', 'Canada', 'Czechia', 'Denmark',
     'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary',
@@ -111,26 +106,19 @@ ADVANCED_ECONOMIES = [
 ]
 
 EMERGING_DEVELOPING_ECONOMIES = [
-    # OECD Emerging
-    'Chile', 'Colombia', 'Costa Rica', 'Mexico', 'Türkiye',
-    # Partner Countries
-    'Indonesia', 'India', 'China', 'Brazil', 'Argentina',
-    'South Africa', 'Peru', 'Saudi Arabia', 'Russia'
+    'Chile', 'Colombia', 'Costa Rica', 'Mexico', 'Türkiye', 'Indonesia',
+    'India', 'China', 'Brazil', 'Argentina', 'South Africa', 'Peru',
+    'Saudi Arabia', 'Russia'
 ]
 
-# List of aggregate groups already in the data
-AGGREGATE_GROUPS = ['OECD Average', 'EU25 Average', 'G20 Average']
-
-# HELPER FUNCTION: Assign country groups
-def assign_group(country):
-    if country in ADVANCED_ECONOMIES:
-        return 'Advanced Economies'
-    if country in EMERGING_DEVELOPING_ECONOMIES:
-        return 'Emerging/Developing Economies'
-    if country in AGGREGATE_GROUPS:
-        return country # Return the group name itself
-    return 'Other'
-
+# List of aggregate groups *we will calculate* or *are pre-calculated*
+AGGREGATE_GROUPS = [
+    'OECD Average (Calculated)', # Our new, reliable group
+    'Advanced Economies',
+    'Emerging/Developing Economies',
+    'EU25 Average',
+    'G20 Average'
+]
 
 # ----------------------------------------------------------------------------
 # DATA LOADING AND PREPROCESSING
@@ -147,24 +135,50 @@ df_computed = ddf[
 
 print(f"Data computed. {len(df_computed)} rows loaded into memory.")
 
+# HELPER FUNCTION: Categorize education levels
+def categorize_education(attainment_level):
+    if pd.isna(attainment_level): return 'Other'
+    level_str = str(attainment_level)
+    if any(x in level_str for x in ['ISCED11A_0', 'ISCED11A_1', 'ISCED11A_2']): return 'Primary'
+    elif any(x in level_str for x in ['ISCED11A_3', 'ISCED11A_4']): return 'Secondary'
+    elif any(x in level_str for x in ['ISCED11A_5', 'ISCED11A_6', 'ISCED11A_7', 'ISCED11A_8']): return 'Tertiary'
+    return 'Other'
+
+# HELPER FUNCTION: Assign country groups
+def assign_group(country):
+    if country in OECD_MEMBER_COUNTRIES:
+        return 'OECD Average (Calculated)' # Assign to our new group
+    if country in ADVANCED_ECONOMIES:
+        return 'Advanced Economies'
+    if country in EMERGING_DEVELOPING_ECONOMIES:
+        return 'Emerging/Developing Economies'
+    if country == 'EU25 Average' or country == 'G20 Average':
+        return country
+    if country == 'OECD Average (Broken)':
+        return 'Other (Ignored)'
+    if country == 'India': # Keep India separate
+        return 'India'
+    return 'Other'
+
+# HELPER FUNCTION: Clean facet labels
+def clean_facet_labels(fig):
+    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+    return fig
+
 # Apply all mappings
 print("Applying human-readable labels...")
 df_computed['Education Level'] = df_computed['ATTAINMENT_LEV'].apply(categorize_education)
-
-# This first line is OK because it fills with a simple string 'Other/Total'
 df_computed['Field of Education'] = df_computed['EDUCATION_FIELD'].map(FIELD_MAP).fillna('Other/Total')
-
-# --- APPLY .astype(object) TO THE LINES BELOW ---
-
-# Add .astype(object) before .fillna()
 df_computed['Age Group'] = df_computed['AGE'].map(AGE_MAP).astype(object).fillna(df_computed['AGE'])
 df_computed['Gender'] = df_computed['SEX'].map(SEX_MAP).astype(object).fillna(df_computed['SEX'])
 df_computed['Birth Place'] = df_computed['BIRTH_PLACE'].map(BIRTH_PLACE_MAP).astype(object).fillna(df_computed['BIRTH_PLACE'])
 df_computed['Country'] = df_computed['REF_AREA'].map(COUNTRY_MAP).astype(object).fillna(df_computed['REF_AREA'])
 df_computed['Group'] = df_computed['Country'].apply(assign_group)
 
+# Filter out all ignored/other data at the start
+df_computed = df_computed[df_computed['Group'] != 'Other'].copy()
+
 print("Data preprocessing complete.")
-# HELPER FUNCTION: Categorize education levels
 
 print("Unique Country List:", df_computed['Country'].unique())
 
@@ -188,51 +202,81 @@ def clean_facet_labels(fig):
     fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
     return fig
 # ============================================================================
-# VIZ 1: Education Attainment Trends Over Time
+# VIZ 1: Attainment Trends (Performers & Averages) [REVISED]
 # ============================================================================
-print("\n[1/7] Viz 1: Education Attainment Trends Over Time...")
+print("\n[1/7] Viz 1: Education Attainment Trends (Performers)...")
 
-# Filter data
-trends = df_computed[
-    (df_computed['EDUCATION_FIELD'] == '_T') &
-    (df_computed['SEX'] == '_T') &
-    (df_computed['AGE'] == 'Y25T64') &
-    (df_computed['MEASURE'] == 'POP')
-]
+# Filter data (we use the 'trends_agg' from VIZ 8)
+if 'trends_agg' in locals():
+    # Get latest year
+    latest_year = trends_agg['TIME_PERIOD'].max()
+    print(f"  > Ranking countries based on latest year: {latest_year}")
+    
+    # --- NEW LOGIC: Find Top/Bottom Performers ---
+    
+    # 1. Get data for the latest year
+    latest_year_data = trends_agg[trends_agg['TIME_PERIOD'] == latest_year]
 
-# Aggregate data
-trends_agg = trends.groupby(['TIME_PERIOD', 'Education Level', 'Country'])['OBS_VALUE'].sum().reset_index()
+    # 2. Get the 'Advanced' & 'Emerging' group averages
+    group_avg_data = trends_agg.groupby(
+        ['TIME_PERIOD', 'Education Level', 'Group']
+    )['PERCENTAGE'].mean().reset_index()
+    
+    adv_avg = group_avg_data[group_avg_data['Group'] == 'Advanced Economies']
+    emg_avg = group_avg_data[group_avg_data['Group'] == 'Emerging/Developing Economies']
+    
+    # 3. Get the pre-calculated 'OECD Average'
+    oecd_avg = trends_agg[trends_agg['Country'] == 'OECD Average']
+    
+    # 4. Find Top 2 & Bottom 2 (by Tertiary % in latest year)
+    rank_metric = latest_year_data[
+        (latest_year_data['Education Level'] == 'Tertiary') &
+        (~latest_year_data['Group'].isin(AGGREGATE_GROUPS)) &
+        (latest_year_data['Group'] != 'Other')
+    ].sort_values(by='PERCENTAGE')
+    
+    top_2_countries = rank_metric.nlargest(2, 'PERCENTAGE')['Country'].tolist()
+    bottom_2_countries = rank_metric.nsmallest(2, 'PERCENTAGE')['Country'].tolist()
 
-# Get top 8 countries
-top_countries = trends_agg.groupby('Country')['OBS_VALUE'].sum().nlargest(8).index.tolist()
-trends_agg = trends_agg[trends_agg['Country'].isin(top_countries)]
+    # 5. Filter the main trend data for these selected countries
+    top_bottom_2_data = trends_agg[
+        trends_agg['Country'].isin(top_2_countries + bottom_2_countries)
+    ]
+    
+    # 6. Combine everything for plotting
+    plot_data = pd.concat([
+        top_bottom_2_data,
+        oecd_avg,
+        # We need the full trend data for the groups, not just one year
+        trends_agg[trends_agg['Country'].isin(adv_avg['Country'])],
+        trends_agg[trends_agg['Country'].isin(emg_avg['Country'])]
+    ], ignore_index=True)
+    
+    # Fill 'Country' from 'Group' for averages
+    plot_data['Country'] = plot_data['Country'].fillna(plot_data['Group'])
 
-# Calculate percentages
-trends_agg['PERCENTAGE'] = trends_agg.groupby(['TIME_PERIOD', 'Country'])['OBS_VALUE'].transform(
-    lambda x: (x / x.sum() * 100) if x.sum() > 0 else 0
-)
-
-fig1 = px.line(
-    trends_agg,
-    x='TIME_PERIOD',
-    y='PERCENTAGE',
-    color='Education Level',
-    facet_col='Country',
-    facet_col_wrap=4,
-    title='Education Attainment Trends Over Time (Primary, Secondary, Tertiary)',
-    labels={
-        'TIME_PERIOD': 'Year',
-        'PERCENTAGE': 'Percentage (%)',
-        'Education Level': 'Education Level',
-        'Country': 'Country'
-    },
-    height=1000,
-    markers=True
-)
-fig1.update_layout(template='plotly_white', hovermode='x unified', font=dict(size=10))
-fig1 = clean_facet_labels(fig1)  # Clean facet labels
-fig1.write_html('viz_01_education_trends_over_time.html')
-print("  ✓ Saved: viz_01_education_trends_over_time.html")
+    # --- THIS IS THE NEW PLOT ---
+    fig1 = px.line(
+        plot_data,
+        x='TIME_PERIOD',
+        y='PERCENTAGE',
+        color='Country',      # Each line is a Country/Group
+        facet_row='Education Level', # Separate charts for Primary, Sec, Tert
+        title='Education Attainment Trends: Performers & Averages',
+        labels={
+            'TIME_PERIOD': 'Year',
+            'PERCENTAGE': 'Percentage of Population (%)',
+            'Country': 'Country / Group'
+        },
+        height=900,
+        markers=True
+    )
+    fig1.update_layout(template='plotly_white', hovermode='x unified')
+    fig1 = clean_facet_labels(fig1)
+    fig1.write_html('viz_01_education_trends_over_time.html')
+    print("  ✓ Saved: viz_01_education_trends_over_time.html")
+else:
+    print("  ✗ Could not generate Viz 1: 'trends_agg' from VIZ 8 not found.")
 
 # ============================================================================
 # VIZ 2: Age Group Performers (Top 2, Bottom 2, Averages) [REVISED]
@@ -321,69 +365,93 @@ else:
     print("  ✗ Could not generate Viz 2: Latest year data not found.")
 
 # ============================================================================
-# VIZ 3: Education Field Trends (FIXED as 100% Stacked Bar)
+# VIZ 3: Education Field Mix (Aggregate Groups) [REVISED]
 # ============================================================================
-print("\n[3/7] Viz 3: Education Field Trends...")
+print("\n[3/7] Viz 3: Education Field Mix by Group...")
+
+# Get latest year
+latest_year = df_computed['TIME_PERIOD'].max()
+print(f"  > Filtering Field Mix data for latest available year: {latest_year}")
 
 # Filter data
 field_trends = df_computed[
     (df_computed['EDUCATION_FIELD'] != '_T') &
     (df_computed['SEX'] == '_T') &
     (df_computed['AGE'] == 'Y25T64') &
-    (df_computed['MEASURE'] == 'POP')
+    (df_computed['MEASURE'] == 'POP') &
+    (df_computed['BIRTH_PLACE'] == '_T') &
+    (df_computed['TIME_PERIOD'] == latest_year)
 ]
 
-# Aggregate data
-field_agg = field_trends.groupby(['TIME_PERIOD', 'Field of Education', 'Country'])['OBS_VALUE'].sum().reset_index()
+# Aggregate data for all countries
+field_agg_all = field_trends.groupby(
+    ['Field of Education', 'Country', 'Group']
+)['OBS_VALUE'].sum().reset_index()
 
-# --- NEW: Calculate Percentages ---
-# This calculates the percentage of each field *within* its Time/Country group
-field_agg['PERCENTAGE'] = field_agg.groupby(
-    ['TIME_PERIOD', 'Country']
+# --- NEW LOGIC: Show Averages for Groups ---
+
+# 1. Calculate the average population for our custom groups
+avg_field_groups = field_agg_all.groupby(
+    ['Group', 'Field of Education']
+)['OBS_VALUE'].mean().reset_index()
+
+# 2. Get the pre-calculated 'OECD Average'
+oecd_avg_field = field_agg_all[field_agg_all['Country'] == 'OECD Average']
+
+# 3. Combine the groups we want to plot
+plot_data = pd.concat([
+    avg_field_groups[avg_field_groups['Group'] == 'Advanced Economies'],
+    avg_field_groups[avg_field_groups['Group'] == 'Emerging/Developing Economies'],
+    oecd_avg_field
+], ignore_index=True)
+
+# Fill 'Country' from 'Group' for averages
+plot_data['Country'] = plot_data['Country'].fillna(plot_data['Group'])
+
+# 4. Calculate Percentage (for the 100% stack)
+plot_data['PERCENTAGE'] = plot_data.groupby(
+    ['Country']
 )['OBS_VALUE'].transform(lambda x: (x / x.sum() * 100) if x.sum() > 0 else 0)
 
-# Get top countries
-top_countries = field_agg.groupby('Country')['OBS_VALUE'].sum().nlargest(4).index.tolist()
-field_agg = field_agg[field_agg['Country'].isin(top_countries)]
 
-# --- UPDATED: Plot PERCENTAGE, not OBS_VALUE ---
+# --- THIS IS THE NEW PLOT ---
 fig3 = px.bar(
-    field_agg,
-    x='TIME_PERIOD',
-    y='PERCENTAGE',  # <-- Use PERCENTAGE
+    plot_data,
+    x='Country',
+    y='PERCENTAGE',
     color='Field of Education',
-    facet_col='Country',
-    facet_col_wrap=2,
-    title='Mix of Education Fields Over Time (Top 4 Countries)', # <-- New Title
+    title=f'Mix of Education Fields by Economic Group (Year {latest_year})',
     labels={
-        'TIME_PERIOD': 'Year',
-        'PERCENTAGE': 'Percentage of Population (%)', # <-- New Label
-        'Field of Education': 'Field of Education',
-        'Country': 'Country'
+        'Country': 'Country Group',
+        'PERCENTAGE': 'Percentage of Population (%)',
+        'Field of Education': 'Field of Education'
     },
-    height=800,
+    height=600,
     barmode='stack'
 )
+# Add text labels on the bars
+fig3.update_traces(texttemplate='%{y:.1f}%', textposition='inside')
 fig3.update_layout(template='plotly_white')
-fig3 = clean_facet_labels(fig3) # <-- Apply our new label cleaner
 fig3.write_html('viz_03_education_field_trends.html')
 print("  ✓ Saved: viz_03_education_field_trends.html")
 # ============================================================================
-# VIZ 4: Country Growth Analysis (FIXED)
+# VIZ 4: Growth Performers (Top 2, Bottom 2, Averages) [REVISED]
 # ============================================================================
-print("\n[4/7] Viz 4: Country Growth Analysis...")
+print("\n[4/7] Viz 4: Country Growth Analysis (Performers)...")
 
-# Filter data - ADDED BIRTH_PLACE FILTER to prevent stacking bug
+# Filter data
 growth_data = df_computed[
     (df_computed['EDUCATION_FIELD'] == '_T') &
     (df_computed['SEX'] == '_T') &
     (df_computed['AGE'] == 'Y25T64') &
     (df_computed['MEASURE'] == 'POP') &
-    (df_computed['BIRTH_PLACE'] == '_T') # <--- ADDED FILTER
+    (df_computed['BIRTH_PLACE'] == '_T')
 ]
 
 # Aggregate data
-growth_agg = growth_data.groupby(['TIME_PERIOD', 'Country', 'Education Level'])['OBS_VALUE'].sum().reset_index()
+growth_agg = growth_data.groupby(
+    ['TIME_PERIOD', 'Country', 'Group', 'Education Level']
+)['OBS_VALUE'].sum().reset_index()
 
 years = sorted(growth_agg['TIME_PERIOD'].unique())
 if len(years) >= 2:
@@ -392,38 +460,61 @@ if len(years) >= 2:
 
     growth_calc = growth_agg[
         (growth_agg['TIME_PERIOD'] == first_year) | (growth_agg['TIME_PERIOD'] == last_year)
-    ].pivot_table(values='OBS_VALUE', index=['Country', 'Education Level'], columns='TIME_PERIOD').reset_index()
+    ].pivot_table(values='OBS_VALUE', index=['Country', 'Group', 'Education Level'], columns='TIME_PERIOD').reset_index()
 
-    # Handle potential missing years for a country
     if first_year in growth_calc.columns and last_year in growth_calc.columns:
         growth_calc['GROWTH_RATE'] = ((growth_calc[last_year] - growth_calc[first_year]) / growth_calc[first_year] * 100).fillna(0)
-        growth_calc = growth_calc[growth_calc['GROWTH_RATE'] != 0] # Remove 0 growth
+        growth_calc = growth_calc[growth_calc['GROWTH_RATE'] != 0]
 
-        # --- NEW LOGIC ---
-        # 1. Find top 5 countries based on TERTIARY education growth
-        top_tertiary_growth_countries = growth_calc[
-            growth_calc['Education Level'] == 'Tertiary'
-        ].nlargest(5, 'GROWTH_RATE')['Country'].tolist()
+        # --- NEW LOGIC: Calculate Averages and find Top/Bottom ---
 
-        # 2. Filter the main growth data to get ALL levels for those 5 countries
-        growth_calc_top_countries = growth_calc[
-            growth_calc['Country'].isin(top_tertiary_growth_countries)
+        # 1. Calculate the average growth rate for our custom groups
+        avg_growth_groups = growth_calc.groupby(
+            ['Group', 'Education Level']
+        )['GROWTH_RATE'].mean().reset_index()
+        
+        # 2. Find Top 2 & Bottom 2 (by Tertiary Growth)
+        rank_metric = growth_calc[
+            (growth_calc['Education Level'] == 'Tertiary') &
+            (growth_calc['Group'] != 'Other') &
+            # Exclude all aggregates from ranking
+            (~growth_calc['Group'].isin(AGGREGATE_GROUPS)) 
+        ].sort_values(by='GROWTH_RATE')
+        
+        top_2_countries = rank_metric.nlargest(2, 'GROWTH_RATE')['Country'].tolist()
+        bottom_2_countries = rank_metric.nsmallest(2, 'GROWTH_RATE')['Country'].tolist()
+
+        # 3. Filter the main data for these
+        top_bottom_2_data = growth_calc[
+            growth_calc['Country'].isin(top_2_countries + bottom_2_countries)
         ]
 
-        # 3. Plot this new, complete DataFrame
+        # 4. Combine everything for plotting
+        plot_data = pd.concat([
+            top_bottom_2_data,
+            avg_growth_groups[avg_growth_groups['Group'] == 'OECD Average (Calculated)'],
+            avg_growth_groups[avg_growth_groups['Group'] == 'Advanced Economies'],
+            avg_growth_groups[avg_growth_groups['Group'] == 'Emerging/Developing Economies']
+        ], ignore_index=True)
+        
+        plot_data['Country'] = plot_data['Country'].fillna(plot_data['Group'])
+
+        # --- THIS IS THE NEW PLOT ---
         fig4 = px.bar(
-            growth_calc_top_countries, # <--- Use new DataFrame
+            plot_data,
             x='Country',
             y='GROWTH_RATE',
             color='Education Level',
-            title=f'Education Growth Rates for Top 5 Countries (by Tertiary Growth, {first_year}-{last_year})',
+            title=f'Education Growth Rates: Performers & Averages ({first_year}-{last_year})',
             labels={
                 'GROWTH_RATE': 'Growth Rate (%)',
-                'Country': 'Country',
+                'Country': 'Country / Group',
                 'Education Level': 'Education Level'
             },
             height=600,
-            barmode='group'
+            barmode='group',
+            category_orders={'Country': plot_data[plot_data['Education Level']=='Tertiary']
+                                         .sort_values(by='GROWTH_RATE')['Country'].tolist()}
         )
         fig4.update_layout(template='plotly_white', hovermode='x unified')
         fig4.write_html('viz_04_country_growth_analysis.html')
@@ -635,57 +726,100 @@ fig6.write_html('viz_06_education_vs_migration.html')
 print("  ✓ Saved: viz_06_education_vs_migration.html")
 
 # ============================================================================
-# VIZ 7: Gender Distribution in Education (FIXED as 100% Stacked Bar)
+# VIZ 7: Gender Distribution (Custom Comparison) [REVISED]
 # ============================================================================
-print("\n[7/7] Viz 7: Gender Distribution in Education...")
+print("\n[7/7] Viz 7: Gender Distribution (Custom Comparison)...")
 
 # Filter data
 gender_data = df_computed[
     (df_computed['EDUCATION_FIELD'] == '_T') &
-    (df_computed['SEX'] != '_T') &               # <--- Keeps 'Female' and 'Male'
+    (df_computed['SEX'] != '_T') &
     (df_computed['AGE'] == 'Y25T64') &
     (df_computed['MEASURE'] == 'POP') &
-    (df_computed['BIRTH_PLACE'] == '_T')         # <--- ADDED FILTER
+    (df_computed['BIRTH_PLACE'] == '_T')
 ]
 
 # Aggregate data
 gender_agg = gender_data.groupby(
-    ['TIME_PERIOD', 'Education Level', 'Gender', 'Country']
+    ['TIME_PERIOD', 'Education Level', 'Gender', 'Country', 'Group']
 )['OBS_VALUE'].sum().reset_index()
 
-# --- NEW: Calculate Percentages ---
+# Calculate Percentages for all
 gender_agg['PERCENTAGE'] = gender_agg.groupby(
     ['TIME_PERIOD', 'Country', 'Education Level']
 )['OBS_VALUE'].transform(lambda x: (x / x.sum() * 100) if x.sum() > 0 else 0)
 
-# Get top countries
-top_countries = gender_agg.groupby('Country')['OBS_VALUE'].sum().nlargest(4).index.tolist()
-gender_agg = gender_agg[gender_agg['Country'].isin(top_countries)]
+# --- NEW LOGIC: Get Custom Comparison Group ---
 
-# --- UPDATED: Plot PERCENTAGE ---
-fig7 = px.bar(
-    gender_agg,
-    x='TIME_PERIOD',
-    y='PERCENTAGE',  # <--- Plot PERCENTAGE
-    color='Gender',
-    facet_col='Country',
-    facet_row='Education Level',
-    title='Gender Ratio in Education Levels (Top 4 Countries)', # <-- New Title
-    labels={
-        'TIME_PERIOD': 'Year',
-        'PERCENTAGE': 'Percentage of Population (%)', # <-- New Label
-        'Gender': 'Gender',
-        'Country': 'Country',
-        'Education Level': 'Education Level'
-    },
-    height=1000,
-    barmode='stack' # <--- This makes it a 100% stacked bar
-)
-fig7.update_layout(template='plotly_white')
-fig7 = clean_facet_labels(fig7) # <-- Apply our facet label cleaner
-fig7.update_yaxes(range=[30, 70]) # <--- ADD THIS LINE
-fig7.write_html('viz_07_gender_distribution.html')
-print("  ✓ Saved: viz_07_gender_distribution.html")
+# 1. Calculate Averages for our groups
+avg_gender_group = gender_agg.groupby(
+    ['TIME_PERIOD', 'Education Level', 'Gender', 'Group']
+)['PERCENTAGE'].mean().reset_index()
+
+# Get 'OECD Average (Calculated)'
+oecd_avg_gender = avg_gender_group[avg_gender_group['Group'] == 'OECD Average (Calculated)']
+
+# Get 'Emerging/Developing Economies'
+emerging_avg_gender = avg_gender_group[avg_gender_group['Group'] == 'Emerging/Developing Economies']
+
+# 2. Get 'India'
+india_gender = gender_agg[gender_agg['Country'] == 'India']
+
+# 3. Find 'Worst OECD Performer'
+# (Lowest % of Females in Tertiary Ed, latest year)
+latest_year = gender_agg['TIME_PERIOD'].max()
+rank_metric = gender_agg[
+    (gender_agg['Education Level'] == 'Tertiary') &
+    (gender_agg['Gender'] == 'Female') &
+    (gender_agg['TIME_PERIOD'] == latest_year) &
+    # Rank ONLY the individual OECD countries
+    (gender_agg['Group'] == 'OECD Average (Calculated)')
+].sort_values(by='PERCENTAGE')
+
+if not rank_metric.empty:
+    worst_country_name = rank_metric.nsmallest(1, 'PERCENTAGE')['Country'].iloc[0]
+    print(f"  > Found 'Worst OECD Performer' (Female Tertiary %): {worst_country_name}")
+    worst_country_gender = gender_agg[gender_agg['Country'] == worst_country_name]
+
+    # 5. Combine all four datasets
+    plot_data = pd.concat([
+        oecd_avg_gender,
+        emerging_avg_gender,
+        india_gender,
+        worst_country_gender
+    ], ignore_index=True)
+    
+    # Fill 'Country' from 'Group' for the averages
+    plot_data['Country'] = plot_data['Country'].fillna(plot_data['Group'])
+
+    # --- THIS IS THE NEW PLOT ---
+    fig7 = px.bar(
+        plot_data,
+        x='TIME_PERIOD',
+        y='PERCENTAGE',
+        color='Gender',
+        facet_col='Country', # Facet by our 4 selected groups
+        facet_row='Education Level',
+        title='Gender Ratio: Custom Comparison (OECD Avg, Emerging Avg, India, Worst Performer)',
+        labels={
+            'TIME_PERIOD': 'Year',
+            'PERCENTAGE': 'Percentage of Population (%)',
+            'Gender': 'Gender',
+            'Country': 'Country / Group',
+            'Education Level': 'Education Level'
+        },
+        height=1000,
+        barmode='stack'
+    )
+    
+    fig7.update_layout(template='plotly_white') # <-- Set to light theme
+    fig7 = clean_facet_labels(fig7) # <-- Apply facet label cleaner
+    fig7.update_yaxes(range=[30, 70]) # <-- Apply Y-axis zoom
+    
+    fig7.write_html('viz_07_gender_distribution.html')
+    print("  ✓ Saved: viz_07_gender_distribution.html")
+else:
+    print("  ✗ Could not generate Viz 7: Failed to find ranking metric for 'Worst Performer'.")
 
 # ============================================================================
 # VIZ 8: Aggregate Group Trends (Advanced vs. Developing vs. OECD)
